@@ -251,7 +251,17 @@ async function serveStatic(res, urlPath) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`)
+  // 不正なリクエストURL (例: パス "//") で new URL が例外を投げても
+  // プロセス全体を巻き込まないよう、URLパースと処理全体を保護する。
+  let url
+  try {
+    url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`)
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' })
+    res.end('400 Bad Request')
+    return
+  }
+  try {
   const p = url.pathname
 
   if (p === '/api/rateshop/snapshot') {
@@ -331,6 +341,16 @@ const server = http.createServer(async (req, res) => {
   }
 
   return serveStatic(res, p)
+  } catch (e) {
+    // 想定外の例外でも監視を落とさない。応答前なら500を返す。
+    console.error(`[server] リクエスト処理でエラー: ${e?.message ?? e}`)
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' })
+      res.end('500 Internal Server Error')
+    } else {
+      res.end()
+    }
+  }
 })
 
 server.listen(PORT, HOST, () => {

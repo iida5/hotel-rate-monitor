@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>イベント比較ボード</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-grid" viewBox="0 0 24 24">
+      <rect x="3" y="3" width="7" height="7" rx="1"/>
+      <rect x="14" y="3" width="7" height="7" rx="1"/>
+      <rect x="3" y="14" width="7" height="7" rx="1"/>
+      <rect x="14" y="14" width="7" height="7" rx="1"/>
+    </symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10"/>
+      <polyline points="12 6 12 12 16 14"/>
+    </symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+    </symbol>
+    <symbol id="i-db" viewBox="0 0 24 24">
+      <ellipse cx="12" cy="5" rx="9" ry="3"/>
+      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+    </symbol>
+    <symbol id="i-info" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="16" x2="12" y2="12"/>
+      <line x1="12" y1="8" x2="12.01" y2="8"/>
+    </symbol>
+    <symbol id="i-back" viewBox="0 0 24 24">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12 19 5 12 12 5"/>
+    </symbol>
+  </svg>
+
+  <header>
+    <div class="brand">
+      <span class="logo-box"><svg class="ico ico-logo"><use href="#i-grid"/></svg></span>
+      <div>
+        <h1>イベント比較ボード</h1>
+        <p class="subtitle">縦=時間 × 横=ホテル。「誰が先に動いたか・自社が追随できているか」を横並びで読む</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <a class="settings-btn" href="/"><svg class="ico"><use href="#i-back"/></svg>ダッシュボード</a>
+      <a class="settings-btn" href="/timeline.html"><svg class="ico"><use href="#i-clock"/></svg>個別タイムライン</a>
+      <a class="settings-btn" href="/heatmap.html"><svg class="ico"><use href="#i-db"/></svg>差額ヒートマップ</a>
+      <span class="badge"><svg class="ico"><use href="#i-db"/></svg><span id="mode-badge">モード: ---</span></span>
+      <span id="clock" class="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <section class="cb-main">
+    <div class="panel">
+      <div class="panel-head">
+        <h2><svg class="ico head-ico"><use href="#i-filter"/></svg>フィルタ</h2>
+        <span class="muted" id="board-count"></span>
+      </div>
+      <div class="tl-filters">
+        <div class="tl-field">
+          <div class="rs-ctl-label">期間</div>
+          <div class="chiprow" id="period-chips"></div>
+        </div>
+        <div class="tl-field">
+          <div class="rs-ctl-label">行の粒度</div>
+          <div class="chiprow" id="bucket-chips"></div>
+        </div>
+        <div class="tl-field tl-field-adults hidden" id="adults-field">
+          <div class="rs-ctl-label">宿泊人数</div>
+          <div class="chiprow" id="adults-chips"></div>
+        </div>
+        <div class="tl-field">
+          <label class="rs-ctl-label" for="date-filter">チェックイン日</label>
+          <select id="date-filter" class="rs-select"><option value="">すべて</option></select>
+        </div>
+        <div class="tl-field">
+          <label class="rs-ctl-label" for="room-filter">部屋タイプ</label>
+          <select id="room-filter" class="rs-select"><option value="">すべて</option></select>
+        </div>
+        <div class="tl-field tl-field-types">
+          <div class="rs-ctl-label">イベント種別</div>
+          <div class="chiprow" id="type-chips"></div>
+        </div>
+        <div class="tl-field tl-field-types">
+          <div class="rs-ctl-label">表示ホテル (列)</div>
+          <div class="chiprow" id="hotel-chips"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2><svg class="ico head-ico"><use href="#i-grid"/></svg><span id="board-caption">イベント比較ボード</span></h2>
+      </div>
+      <div class="cb-wrap">
+        <table class="cb-table" id="board"></table>
+      </div>
+      <p class="hint"><svg class="ico ico-sm"><use href="#i-info"/></svg><span>イベントのある時間帯だけを行にしています。セルをクリックするとその時間帯の詳細を表示。在庫増減は既定で非表示です。</span></p>
+    </div>
+  </section>
+
+  <!-- セル詳細モーダル -->
+  <div id="detail-overlay" class="overlay hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+      <div class="modal-head">
+        <h2 id="detail-title"><svg class="ico head-ico"><use href="#i-clock"/></svg><span id="detail-caption">イベント詳細</span></h2>
+        <button id="detail-close" class="icon-btn close-x" title="閉じる">✕</button>
+      </div>
+      <div class="modal-body" id="detail-body"></div>
+    </div>
+  </div>
+
+  <script src="rateshop-common.js"></script>
+  <script src="compare.js"></script>
+</body>
+</html>
