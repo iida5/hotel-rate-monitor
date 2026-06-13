@@ -1,18 +1,13 @@
 # 競合レート監視ダッシュボード — コンテナイメージ
 #
-# ベースは Playwright 公式イメージ。Chromium 本体・OS依存ライブラリ・Node が
-# 同梱済みなので、別PCでも「npx playwright install」「実行権限の修復」
-# 「Node バージョン合わせ」といった手作業が一切不要になる。
-#
-# タグの v1.60.0 は package.json の playwright バージョンと必ず一致させること
-# (イメージ内のブラウザと npm パッケージのバージョン整合が取れる)。
-FROM mcr.microsoft.com/playwright:v1.60.0-noble
+# データ取得は HTTP fetch + node-html-parser のみ (ブラウザ不要) になったため、
+# ベースは軽量な Node 公式 slim イメージ。Chromium も OS依存ライブラリも要らないので
+# イメージは大幅に小さく、別PCへの移設も「node があれば動く」状態を保てる。
+FROM node:22-bookworm-slim
 
 WORKDIR /app
 
-# 依存だけ先に入れてレイヤキャッシュを効かせる。
-# ブラウザはイメージに同梱済みなので postinstall での再ダウンロードを止める。
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+# 依存だけ先に入れてレイヤキャッシュを効かせる (依存は node-html-parser のみ)。
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
