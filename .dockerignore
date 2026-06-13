@@ -1,0 +1,13 @@
+# ビルドコンテキストから除外 (イメージに入れない)
+node_modules
+data
+archive
+feedback
+.claude
+.git
+.gitignore
+.env
+*.md
+Dockerfile
+.dockerignore
+docker-compose.yml

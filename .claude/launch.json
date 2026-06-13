@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hotel-dashboard",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server.js"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "hotel-dashboard-sim",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server.js", "--source=sim"],
+      "port": 3000,
+      "autoPort": true
+    }
+  ]
+}

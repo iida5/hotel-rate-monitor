@@ -1,0 +1,16 @@
+{
+  "name": "hotel-rate-monitor",
+  "version": "1.0.0",
+  "description": "競合ホテルの価格・在庫変動をリアルタイム検知するレートショッパー",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "playwright": "^1.60.0"
+  }
+}

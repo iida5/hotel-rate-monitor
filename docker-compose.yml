@@ -1,0 +1,28 @@
+# 別PCでも `docker compose up -d` だけで起動できるようにする構成。
+#
+#   起動:   docker compose up -d --build
+#   閲覧:   http://localhost:3000
+#   ログ:   docker compose logs -f
+#   停止:   docker compose down
+#
+# 監視設定 (施設・自社・日付・人数・並列数) とアラート/観測履歴は ./data に
+# 永続化されるので、このフォルダごと別PCにコピーすれば設定も履歴も引き継げる。
+services:
+  rate-monitor:
+    build: .
+    image: hotel-rate-monitor
+    ports:
+      - "3000:3000"   # LAN内の他端末からも見たい場合は "0.0.0.0:3000:3000"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+    # .env があれば初回起動の既定値 (APIキー・Webhook等) として読み込む。
+    # 無くても data/rateshop-config.json があれば動くので必須ではない。
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./data:/app/data   # 設定・アラート・観測履歴を永続化
+    # Chromium が共有メモリ不足 (既定64MB) でクラッシュするのを防ぐ
+    shm_size: "1gb"
+    restart: unless-stopped

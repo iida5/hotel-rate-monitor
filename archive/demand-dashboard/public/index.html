@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>日本ホテル需要 リアルタイムダッシュボード</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="logo">🏨</span>
+      <div>
+        <h1>日本ホテル需要 リアルタイムダッシュボード</h1>
+        <p class="subtitle">47都道府県の宿泊需要を2秒間隔でモニタリング</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <a class="nav-link" href="/rateshop.html">📡 競合レート監視 →</a>
+      <span id="source-badge" class="badge">データ: ---</span>
+      <span id="conn" class="conn"><span class="dot"></span>接続中...</span>
+      <span id="clock" class="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- 左カラム: 地図 + 詳細 -->
+    <section class="col-left">
+      <div class="panel map-panel">
+        <div class="panel-head">
+          <h2>都道府県別 需要ヒートマップ</h2>
+          <div class="legend">
+            <span>低</span>
+            <span class="legend-bar"></span>
+            <span>高</span>
+          </div>
+        </div>
+        <svg id="map" viewBox="0 0 708 762" role="img" aria-label="日本の都道府県別ホテル需要マップ"></svg>
+        <p class="hint">タイルをクリックすると詳細が表示されます</p>
+      </div>
+
+      <div id="detail" class="panel detail hidden">
+        <div class="panel-head">
+          <h2 id="detail-title">---</h2>
+          <button id="detail-close" class="close-btn" title="閉じる">✕</button>
+        </div>
+        <div class="detail-stats" id="detail-stats"></div>
+        <canvas id="spark" height="90"></canvas>
+        <h3 class="detail-sub">市区町村別の需要 <span class="muted">(主要宿泊エリア・リアルタイム)</span></h3>
+        <div class="muni-head">
+          <span>エリア</span><span></span><span>需要</span><span>稼働率</span><span>ADR</span>
+        </div>
+        <ol id="muni-rows" class="muni-list"></ol>
+        <h3 class="detail-sub">主要ホテルの状況</h3>
+        <table class="hotel-table">
+          <thead>
+            <tr><th>ホテル</th><th>客室数</th><th>稼働率</th><th>ADR</th></tr>
+          </thead>
+          <tbody id="hotel-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 右カラム: KPI / トレンド / ランキング / フィード -->
+    <aside class="col-right">
+      <div class="kpis">
+        <div class="kpi">
+          <span class="kpi-label">全国需要指数</span>
+          <span class="kpi-value" id="kpi-demand">--</span>
+          <span class="kpi-delta" id="kpi-demand-delta"></span>
+        </div>
+        <div class="kpi">
+          <span class="kpi-label">平均稼働率</span>
+          <span class="kpi-value" id="kpi-occ">--%</span>
+          <span class="kpi-delta" id="kpi-occ-delta"></span>
+        </div>
+        <div class="kpi">
+          <span class="kpi-label">平均客室単価</span>
+          <span class="kpi-value" id="kpi-adr">¥--</span>
+          <span class="kpi-delta" id="kpi-adr-delta"></span>
+        </div>
+        <div class="kpi">
+          <span class="kpi-label">需要急騰アラート</span>
+          <span class="kpi-value alert" id="kpi-alerts">0</span>
+          <span class="kpi-delta" id="kpi-alert-names"></span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>全国需要トレンド <span class="muted">(直近10分)</span></h2></div>
+        <canvas id="trend" height="150"></canvas>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>需要ランキング TOP10</h2></div>
+        <ol id="ranking" class="ranking"></ol>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>需要イベント フィード</h2></div>
+        <ul id="feed" class="feed"></ul>
+      </div>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
