@@ -8,6 +8,7 @@
 //   GET  /                          監視ダッシュボード (public/rateshop.html)
 //   GET  /api/rateshop/snapshot     現在の比較グリッド + 直近アラート
 //   GET  /api/rateshop/alerts?limit= アラート履歴 (最大400件)
+//   GET  /api/rateshop/timeline     ホテル別イベントタイムライン (hotel/from/to/adults)
 //   GET  /api/rateshop/stream       SSE リアルタイムストリーム
 //   GET  /api/rateshop/config       現在の監視設定 (画面の設定フォーム用)
 //   POST /api/rateshop/config       監視設定を更新して監視を再起動
@@ -271,6 +272,25 @@ const server = http.createServer(async (req, res) => {
     const adults = adultsRaw ? Number(adultsRaw) : null
     const history = await rateshop.readHistory({ hotelId, date, adults })
     return json(res, { hotelId, date, adults, history })
+  }
+
+  // ホテル別イベントタイムライン (アラート履歴を施設・期間・人数で絞る)
+  if (p === '/api/rateshop/timeline') {
+    const hotelId = url.searchParams.get('hotel') || null
+    const fromRaw = url.searchParams.get('from')
+    const toRaw = url.searchParams.get('to')
+    const adultsRaw = url.searchParams.get('adults')
+    const from = fromRaw ? Number(fromRaw) : null
+    const to = toRaw ? Number(toRaw) : null
+    const adults = adultsRaw ? Number(adultsRaw) : null
+    const events = await rateshop.readTimeline({ hotelId, from, to, adults })
+    // 左カラムのホテル一覧と人数タブ用に、現在の監視対象も併せて返す
+    return json(res, {
+      hotelId, from, to, adults,
+      hotels: rateshop.hotels,
+      adultsList: rateshop.adultsList ?? null,
+      events,
+    })
   }
 
   if (p === '/api/rateshop/config') {

@@ -169,6 +169,7 @@ RATESHOP_OWN=143637
 | `GET /api/rateshop/snapshot` | 現在の比較グリッド + 直近アラート (JSON) |
 | `GET /api/rateshop/alerts?limit=100` | アラート履歴 (最大400件) |
 | `GET /api/rateshop/history?hotel=&date=&adults=` | ホテル×日付の観測履歴 (推移チャートの元データ) |
+| `GET /api/rateshop/timeline?hotel=&from=&to=&adults=` | ホテル別イベントタイムライン (アラート履歴を施設・期間・人数で絞る) |
 | `GET /api/rateshop/stream` | SSE リアルタイムストリーム |
 
 ## ファイル構成
