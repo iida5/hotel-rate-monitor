@@ -58,6 +58,13 @@ function fmtDate(iso) {
   return `${m}/${d}(${DOW[dow]})`
 }
 
+// 金土のみ週末扱い (ビジネスホテルでは日曜泊は平日並みに安い日が多いため)
+const isWeekendDate = iso => {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dow = new Date(y, m - 1, d).getDay()
+  return dow === 5 || dow === 6
+}
+
 // 時刻表示: 今日以外は日付も付ける
 function fmtTime(t) {
   const d = new Date(t)

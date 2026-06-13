@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自社との差額ヒートマップ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-heat" viewBox="0 0 24 24">
+      <path d="M8 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-.5-2-1-3"/>
+      <path d="M12 22a6 6 0 0 0 6-6c0-3-3-5-3-9 0 0-3 2-3 6 0-2-1-3-1-3-1 2-2 3-2 5a6 6 0 0 0 6 7z" transform="scale(0.0)"/>
+    </symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+    <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></symbol>
+  </svg>
+
+  <header>
+    <div class="brand">
+      <span class="logo-box"><svg class="ico ico-logo"><use href="#i-heat"/></svg></span>
+      <div>
+        <h1>自社との差額ヒートマップ</h1>
+        <p class="subtitle">横=チェックイン日 × 縦=競合。赤=自社より安い競合 (危険) / 青=自社が優位</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <a class="settings-btn" href="/"><svg class="ico"><use href="#i-back"/></svg>ダッシュボード</a>
+      <a class="settings-btn" href="/compare.html"><svg class="ico"><use href="#i-grid"/></svg>比較ボード</a>
+      <span class="badge"><svg class="ico"><use href="#i-db"/></svg><span id="mode-badge">モード: ---</span></span>
+      <span id="conn" class="conn"><span class="dot"></span>接続中...</span>
+      <span id="clock" class="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <section class="cb-main">
+    <div class="panel">
+      <div class="panel-head">
+        <h2><svg class="ico head-ico"><use href="#i-info"/></svg>表示条件</h2>
+        <span class="muted" id="danger-summary"></span>
+      </div>
+      <div class="tl-filters">
+        <div class="tl-field tl-field-adults hidden" id="adults-field">
+          <div class="rs-ctl-label">宿泊人数</div>
+          <div class="chiprow" id="adults-chips"></div>
+        </div>
+        <div class="tl-field">
+          <div class="rs-ctl-label">凡例</div>
+          <div class="hm-legend">
+            <span class="hm-key danger"></span>競合が自社より安い (危険)
+            <span class="hm-key safe"></span>競合が高い (自社優位)
+            <span class="hm-mut">／ 色が濃いほど差が大きい・灰=売止/データなし</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2><svg class="ico head-ico"><use href="#i-heat"/></svg><span id="hm-caption">差額ヒートマップ</span></h2>
+      </div>
+      <div class="cb-wrap">
+        <table class="hm-table" id="heatmap"></table>
+      </div>
+      <p class="hint"><svg class="ico ico-sm"><use href="#i-info"/></svg><span>各セルは「競合の最安値 − 自社の最安値」。マイナス(赤)はその日付で競合が自社を下回っている=要注意。セルクリックで内訳を表示。価格は部屋タイプ最安・1泊。</span></p>
+    </div>
+  </section>
+
+  <!-- セル詳細モーダル -->
+  <div id="detail-overlay" class="overlay hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+      <div class="modal-head">
+        <h2 id="detail-title"><svg class="ico head-ico"><use href="#i-heat"/></svg><span id="detail-caption">差額の内訳</span></h2>
+        <button id="detail-close" class="icon-btn close-x" title="閉じる">✕</button>
+      </div>
+      <div class="modal-body" id="detail-body"></div>
+    </div>
+  </div>
+
+  <script src="rateshop-common.js"></script>
+  <script src="heatmap.js"></script>
+</body>
+</html>
