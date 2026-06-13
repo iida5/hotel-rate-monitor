@@ -146,6 +146,7 @@ const state = {
   types: TYPE_DEFS.map(d => d.key), // 表示する種別グループ
   events: [],          // サーバーから取得した生イベント (新しい順)
   isRealMode: false,
+  trend: null,         // 推移チャートのキャッシュ {key, selRec, ownRec, ...}
 }
 
 // ---------- データ取得 ----------
@@ -209,15 +210,18 @@ function renderTypeChips() {
     `<button class="chip ${state.types.includes(d.key) ? 'active' : ''}" data-type="${d.key}">${d.label}</button>`).join('')
 }
 
-// チェックイン日・部屋タイプの選択肢を、取得済みイベントから組み立てる
+// チェックイン日・部屋タイプの選択肢を、取得済みイベントから組み立てる。
+// 期間を狭めて選択中の値が候補から消えた場合はフィルタをリセットする。
 function renderSelectOptions() {
   const dates = [...new Set(state.events.map(a => a.date).filter(Boolean))].sort()
+  if (state.dateFilter && !dates.includes(state.dateFilter)) state.dateFilter = ''
   const dsel = $('date-filter')
   dsel.innerHTML = '<option value="">すべて</option>' +
     dates.map(d => `<option value="${d}" ${state.dateFilter === d ? 'selected' : ''}>${fmtDate(d)}泊</option>`).join('')
 
   // 部屋タイプはスコープ系 (セール/ポイント) を除いた plan を候補にする
   const rooms = [...new Set(state.events.filter(a => !isScopeEvent(a)).map(a => a.plan).filter(Boolean))].sort()
+  if (state.roomFilter && !rooms.includes(state.roomFilter)) state.roomFilter = ''
   const rsel = $('room-filter')
   rsel.innerHTML = '<option value="">すべて</option>' +
     rooms.map(r => `<option value="${esc(r)}" ${state.roomFilter === r ? 'selected' : ''}>${esc(r)}</option>`).join('')
@@ -289,6 +293,137 @@ function renderFiltersPanel() {
   renderSelectOptions()
 }
 
+// ---------- 価格推移チャート (第2段階: observations を重ねる) ----------
+
+// チャートに使う人数: 明示選択があればそれ、無ければ先頭プロファイル (実データ時)
+function chartAdults() {
+  if (state.adults != null) return state.adults
+  return state.adultsList && state.adultsList.length ? state.adultsList[0] : null
+}
+
+// 期間プリセットの開始時刻 (全期間は null)
+function periodFrom() {
+  const p = PERIODS.find(x => x.key === state.period)
+  return p && p.days != null ? Date.now() - p.days * 86_400_000 : null
+}
+
+// 観測履歴レコード -> [{t, price}] (空室の最安値。期間内に絞る)
+function pricePoints(records, fromT) {
+  return (records ?? []).map(r => {
+    const avail = (r.rooms ?? []).filter(x => x.avail && x.price)
+    return { t: r.t, price: avail.length ? Math.min(...avail.map(x => x.price)) : null }
+  }).filter(p => p.price != null && (fromT == null || p.t >= fromT))
+}
+
+async function fetchHistory(hotelId, date, adults) {
+  const q = new URLSearchParams({ hotel: hotelId, date })
+  if (adults != null) q.set('adults', String(adults))
+  try {
+    const { history } = await fetch('/api/rateshop/history?' + q).then(r => r.json())
+    return history ?? []
+  } catch {
+    return null
+  }
+}
+
+// チャートのデータ取得 (人数/期間/種別の切替では再取得せずキャッシュから再描画する)
+async function loadTrend() {
+  const cap = $('trend-caption')
+  $('trend-gap').textContent = ''
+  const hotel = state.hotels.find(h => h.id === state.selHotel)
+  if (!state.selHotel || !state.dateFilter) {
+    state.trend = null
+    cap.textContent = '価格推移'
+    $('trend-body').innerHTML = '<p class="muted">上の「チェックイン日」を1つ選ぶと、その日の最安値推移を自社と重ねて表示します。</p>'
+    return
+  }
+  const adults = chartAdults()
+  cap.textContent = `${hotel?.name ?? state.selHotel}・${fmtDate(state.dateFilter)}泊${adults != null ? `・${adults}名` : ''} の最安値推移`
+
+  const key = `${state.selHotel}|${state.dateFilter}|${adults}`
+  if (state.trend && state.trend.key === key) { renderTrend(state.trend); return }
+
+  $('trend-body').innerHTML = '<p class="muted">読み込み中…</p>'
+  const own = state.hotels.find(h => h.own)
+  const isOwnSelected = !!(own && own.id === state.selHotel)
+  const [selRec, ownRec] = await Promise.all([
+    fetchHistory(state.selHotel, state.dateFilter, adults),
+    (own && !isOwnSelected) ? fetchHistory(own.id, state.dateFilter, adults) : Promise.resolve(null),
+  ])
+  // 取得中に選択が変わっていたら破棄
+  if (`${state.selHotel}|${state.dateFilter}|${chartAdults()}` !== key) return
+  state.trend = { key, selRec, ownRec, own, isOwnSelected, adults }
+  renderTrend(state.trend)
+}
+
+function renderTrend({ selRec, ownRec, own, isOwnSelected, adults }) {
+  const fromT = periodFrom()
+  const selPts = pricePoints(selRec, fromT)
+  const ownPts = pricePoints(ownRec, fromT)
+  // このホテル×日付のイベント (期間・種別・人数フィルタ後) をマーカーにする
+  const evts = filteredEvents().filter(a => a.date === state.dateFilter &&
+    (fromT == null || a.t >= fromT))
+
+  if (selPts.length < 2) {
+    $('trend-body').innerHTML =
+      '<p class="muted">まだ推移を描けるだけの観測履歴がありません。監視を続けると、この日の最安値推移がここに表示されます。</p>'
+    return
+  }
+
+  const allP = [...selPts, ...ownPts]
+  const W = 720, H = 250, L = 60, R = 24, T = 16, B = 34
+  const t0 = Math.min(...allP.map(p => p.t)), t1 = Math.max(...allP.map(p => p.t))
+  const x = t => L + (W - L - R) * (t1 === t0 ? 0.5 : (t - t0) / (t1 - t0))
+  const pMin = Math.min(...allP.map(p => p.price)), pMax = Math.max(...allP.map(p => p.price))
+  const pad = Math.max(200, Math.round((pMax - pMin) * 0.15))
+  const yLo = pMin - pad, yHi = pMax + pad
+  const y = v => T + (H - T - B) * (1 - (v - yLo) / (yHi - yLo))
+
+  const path = pts => pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p.price).toFixed(1)}`).join(' ')
+  const selLine = path(selPts)
+  const ownLine = ownPts.length >= 2 ? path(ownPts) : ''
+  const selDots = selPts.map(p =>
+    `<circle cx="${x(p.t).toFixed(1)}" cy="${y(p.price).toFixed(1)}" r="3" class="hc-dot"><title>${fmtTime(p.t)}  ${yen(p.price)}</title></circle>`).join('')
+
+  // イベントマーカー: 時間軸上の縦線 + 下端の▲ (種別色)
+  const evtMarks = evts.map(a => {
+    const g = typeGroup(a.type)
+    const xx = x(a.t).toFixed(1)
+    return `<line x1="${xx}" y1="${T}" x2="${xx}" y2="${H - B}" class="tl-evt-line ${g}"/>` +
+      `<polygon points="${xx},${H - B} ${(+xx - 4).toFixed(1)},${H - B + 7} ${(+xx + 4).toFixed(1)},${H - B + 7}" class="tl-evt-mark ${g}"><title>${fmtTime(a.t)}  ${TYPE_LABELS[a.type]} ${esc(a.plan ?? '')}</title></polygon>`
+  }).join('')
+
+  // 差額サマリー: 両系列の最新値で比較 (競合視点)。パネル見出し右に出す
+  if (!isOwnSelected && ownPts.length) {
+    const diff = selPts[selPts.length - 1].price - ownPts[ownPts.length - 1].price
+    const word = diff > 0 ? '高い' : diff < 0 ? '安い' : '同額'
+    const cls = diff > 0 ? 'up-txt' : diff < 0 ? 'down-txt' : ''
+    $('trend-gap').innerHTML = diff === 0
+      ? '現在 自社と同額'
+      : `現在 自社より <b class="${cls}">${yen(Math.abs(diff))} ${word}</b>`
+  }
+
+  const legend = `<p class="hc-legend">
+    <span class="hc-key price"></span>${esc(state.hotels.find(h => h.id === state.selHotel)?.name ?? '対象')}
+    ${ownLine ? `<span class="hc-key own"></span>${esc(own?.name ?? '自社')} (自社)` : ''}
+    <span class="tl-evt-key"></span>イベント発生　点にカーソルで詳細</p>`
+
+  $('trend-body').innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" class="hc" role="img" aria-label="価格推移チャート">
+      <line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" class="hc-axis"/>
+      <line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" class="hc-axis"/>
+      <text x="${L - 6}" y="${y(pMax) + 4}" class="hc-lbl" text-anchor="end">${yen(pMax)}</text>
+      <text x="${L - 6}" y="${y(pMin) + 4}" class="hc-lbl" text-anchor="end">${yen(pMin)}</text>
+      <text x="${L}" y="${H - 8}" class="hc-lbl">${fmtTime(t0)}</text>
+      <text x="${W - R}" y="${H - 8}" class="hc-lbl" text-anchor="end">${fmtTime(t1)}</text>
+      ${evtMarks}
+      ${ownLine ? `<path d="${ownLine}" class="hc-own"/>` : ''}
+      <path d="${selLine}" class="hc-price"/>
+      ${selDots}
+    </svg>
+    ${legend}`
+}
+
 // ---------- 操作 ----------
 
 // ホテル/期間/人数が変わったら再取得。種別・日付・部屋はクライアント側のみ。
@@ -297,6 +432,7 @@ async function reload() {
   renderHotels()
   renderFiltersPanel()
   renderTimeline()
+  loadTrend()
 }
 
 function selectHotel(id) {
@@ -338,11 +474,13 @@ $('type-chips').addEventListener('click', e => {
   else state.types.push(key)
   renderTypeChips()
   renderTimeline()
+  loadTrend() // イベントマーカーは種別フィルタに追従 (キャッシュから再描画)
 })
 
 $('date-filter').addEventListener('change', e => {
   state.dateFilter = e.target.value
   renderTimeline()
+  loadTrend()
 })
 
 $('room-filter').addEventListener('change', e => {
@@ -363,9 +501,10 @@ tickClock()
 async function init() {
   await fetchTimeline() // hotel未指定で全施設のホテル一覧を取得
   $('mode-badge').textContent = 'モード: ' + (state.isRealMode ? '実データ収集' : 'シミュレーション')
-  // 既定の選択ホテル: 自社があればそれ、なければ先頭
-  const own = state.hotels.find(h => h.own)
-  state.selHotel = own ? own.id : (state.hotels[0]?.id ?? null)
+  // 既定の選択ホテル: 自社との差額オーバーレイが映える競合を優先。
+  // 競合が無ければ自社、それも無ければ先頭。
+  const firstRival = state.hotels.find(h => !h.own)
+  state.selHotel = (firstRival ?? state.hotels.find(h => h.own) ?? state.hotels[0])?.id ?? null
   if (state.selHotel) {
     await reload() // 選択ホテルで取得し直す
   } else {
