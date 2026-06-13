@@ -12,34 +12,9 @@
 
 const $ = id => document.getElementById(id)
 
-// ---- rateshop.js と同じ表示流儀 (種別ラベル・整形ユーティリティ) ----
-
-const TYPE_LABELS = {
-  price_up: '値上げ',
-  price_down: '値下げ',
-  soldout: '売止/満室',
-  restock: '販売再開',
-  stock_up: '在庫増',
-  stock_down: '在庫減',
-  sale_start: 'セール開始',
-  sale_end: 'セール終了',
-  point_up: 'ポイントUP',
-}
-
-const TYPE_DEFS = [
-  { key: 'price_up', label: '値上げ' },
-  { key: 'price_down', label: '値下げ' },
-  { key: 'soldout', label: '売止/満室' },
-  { key: 'restock', label: '販売再開' },
-  { key: 'stock', label: '在庫増減' },
-  { key: 'sale', label: 'セール' },
-  { key: 'point', label: 'ポイント' },
-]
-const typeGroup = t =>
-  (t === 'stock_up' || t === 'stock_down') ? 'stock'
-  : (t === 'sale_start' || t === 'sale_end') ? 'sale'
-  : (t === 'point_up') ? 'point'
-  : t
+// 種別ラベル・整形ユーティリティ (TYPE_LABELS / TYPE_DEFS / typeGroup / esc / DOW /
+// fmtDate / fmtTime / yen / stockTxt / rakutenPlanUrl / eventDetail / isScopeEvent)
+// は rateshop-common.js で定義 (HTMLで先に読み込む)。
 
 const PERIODS = [
   { key: '1', label: '24時間', days: 1 },
@@ -48,24 +23,6 @@ const PERIODS = [
   { key: '30', label: '30日', days: 30 },
   { key: 'all', label: '全期間', days: null },
 ]
-
-const esc = s => String(s).replace(/[&<>"']/g, c =>
-  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-
-const DOW = ['日', '月', '火', '水', '木', '金', '土']
-
-function fmtDate(iso) {
-  const [y, m, d] = iso.split('-').map(Number)
-  const dow = new Date(y, m - 1, d).getDay()
-  return `${m}/${d}(${DOW[dow]})`
-}
-
-// イベント発生時刻 (今日以外は日付も付ける)
-function fmtTime(t) {
-  const d = new Date(t)
-  const hm = d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-  return d.toDateString() === new Date().toDateString() ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm.slice(0, 5)}`
-}
 
 // 日付グループ見出し (「6/13(金)」+ 今日/昨日)
 function dayKey(t) {
@@ -80,58 +37,6 @@ function dayHeader(t) {
   const tag = same(d, today) ? ' 今日' : same(d, yest) ? ' 昨日' : ''
   return `${d.getMonth() + 1}/${d.getDate()}(${DOW[d.getDay()]})${tag}`
 }
-
-const yen = v => '¥' + Number(v).toLocaleString()
-
-const stockTxt = (stock, plus, src) =>
-  stock == null ? '' : `${src === 'probe' ? '約' : ''}${stock}${plus ? '+' : ''}室`
-
-// 楽天トラベルのプラン一覧ページURL (実データの裏取り用)
-function rakutenPlanUrl(hotelId, dateIso, adults) {
-  const [y, m, d] = dateIso.split('-').map(Number)
-  const ci = new Date(y, m - 1, d)
-  const co = new Date(y, m - 1, d + 1)
-  const p2 = n => String(n).padStart(2, '0')
-  const q = new URLSearchParams({
-    f_nen1: ci.getFullYear(), f_tuki1: p2(ci.getMonth() + 1), f_hi1: p2(ci.getDate()),
-    f_nen2: co.getFullYear(), f_tuki2: p2(co.getMonth() + 1), f_hi2: p2(co.getDate()),
-    f_otona_su: String(adults ?? 2), f_heya_su: '1',
-    f_s1: '0', f_s2: '0', f_y1: '0', f_y2: '0', f_y3: '0', f_y4: '0', f_teikei: '',
-  })
-  return `https://hotel.travel.rakuten.co.jp/hotelinfo/plan/${hotelId}?${q}`
-}
-
-function eventDetail(a) {
-  switch (a.type) {
-    case 'price_up':
-    case 'price_down': {
-      const cls = a.type === 'price_up' ? 'up-txt' : 'down-txt'
-      const own = a.ownPrice != null && !a.own
-        ? ` <span class="rs-own-ref">自社最安 ${yen(a.ownPrice)}</span>` : ''
-      return `${yen(a.oldPrice)} → <b>${yen(a.price)}</b> <span class="${cls}">(${a.pct > 0 ? '+' : ''}${a.pct}%)</span>${own}` +
-        (a.planName ? `<div class="rs-plan-note" title="${esc(a.planName)}">${esc(a.planName)}</div>` : '')
-    }
-    case 'soldout':
-      return `販売停止を検知 (直前価格 ${a.price != null ? yen(a.price) : '-'})`
-    case 'restock':
-      return `販売再開 ${a.price != null ? yen(a.price) : ''}${a.stock != null ? ` / 残${stockTxt(a.stock, a.stockPlus, a.stockSrc)}` : ''}` +
-        (a.planName ? `<div class="rs-plan-note" title="${esc(a.planName)}">${esc(a.planName)}</div>` : '')
-    case 'stock_up':
-    case 'stock_down':
-      return `残室 ${stockTxt(a.oldStock, a.oldStockPlus, a.stockSrc)} → <b>${stockTxt(a.stock, a.stockPlus, a.stockSrc)}</b>`
-    case 'sale_start':
-      return `<b>${esc(a.label ?? a.plan)}</b> の対象プランが登場`
-    case 'sale_end':
-      return `<b>${esc(a.label ?? a.plan)}</b> の対象プランがなくなりました`
-    case 'point_up':
-      return `ポイント ${a.oldPoints != null ? `${a.oldPoints}倍 → ` : ''}<b>${a.points}倍</b>`
-    default:
-      return ''
-  }
-}
-
-// 種別がスコープ単位 (部屋タイプを持たない) か。部屋フィルタ時の扱いを分ける。
-const isScopeEvent = a => a.type === 'sale_start' || a.type === 'sale_end' || a.type === 'point_up'
 
 // ---------- 状態 ----------
 
