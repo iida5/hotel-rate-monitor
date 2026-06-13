@@ -1,6 +1,6 @@
 // 競合レート監視 (レートショッパー) - HTTPサーバー + SSE配信
 //
-// 外部依存ゼロ + Playwright (ブラウザ収集時)。
+// 外部依存は node-html-parser のみ (楽天収集時の HTML パース用)。
 //   起動:  node server.js
 //   閲覧:  http://localhost:3000
 //
@@ -25,7 +25,7 @@
 //   RATESHOP_OWN       上記のうち自社の施設番号 (設定の初期値)
 //   RATESHOP_DATES     監視するチェックイン日のオフセット日数 (既定 "1,3,7,14,30")
 //   RATESHOP_ADULTS    空室検索する宿泊人数。カンマ区切りで最大3プロファイル (既定 2。例 "1,2")
-//   RATESHOP_CONCURRENCY ブラウザ収集の並列ページ数 1〜10 (既定 3)
+//   RATESHOP_CONCURRENCY 楽天収集の並列取得数 1〜10 (既定 3)
 //   RATESHOP_STOCK_PROBE 残室数プローブの最大段数 1〜10 (既定 5。1で無効=バッジ実値のみ)
 //   RATESHOP_HEADFUL   1 でブラウザを画面表示 (デバッグ用。既定はヘッドレス)
 //   RATESHOP_WEBHOOK   アラート送信先のSlack互換Webhook URL (任意)
@@ -357,7 +357,7 @@ server.listen(PORT, HOST, () => {
   console.log('==============================================')
   console.log('  ホテル競合レート監視ダッシュボード')
   console.log(`  http://localhost:${PORT}`)
-  const label = { browser: 'ブラウザ収集 (楽天トラベル)', rakuten: '楽天トラベルAPI', sim: 'シミュレーション' }
+  const label = { browser: '楽天トラベル収集 (HTTP直接取得)', rakuten: '楽天トラベルAPI', sim: 'シミュレーション' }
   console.log(`  データソース: ${label[resolveKind(config)] ?? resolveKind(config)}`)
   console.log('==============================================')
 })
