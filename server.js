@@ -110,9 +110,11 @@ const argSource = process.argv.find(a => a.startsWith('--source='))?.split('=')[
 const FIXED = {
   source: (argSource || process.env.RATESHOP_SOURCE || '').toLowerCase(),
   // 楽天のレート制限を避けるための既定値 (取得を速くしすぎると間引かれ在庫推定が不安定化する)。
+  // fetch は軽いので並列化は不要 (既定は逐次=並列1)。リクエスト間隔は navDelay 一本で制御でき、
+  // 逐次だとレートが完全に均一になりバースト無しで制限を踏みにくい。
   // 速度を上げたい場合は env で stockProbe↑ / navDelay↓ / 並列数↑ を調整する。
   stockProbe: Number(process.env.RATESHOP_STOCK_PROBE || 3),
-  navDelay: Number(process.env.RATESHOP_NAV_DELAY || 1500),
+  navDelay: Number(process.env.RATESHOP_NAV_DELAY || 1000),
   tickMs: Number(process.env.RATESHOP_TICK_MS || 5000),
 }
 
