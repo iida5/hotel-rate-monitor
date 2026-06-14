@@ -23,6 +23,4 @@ services:
         required: false
     volumes:
       - ./data:/app/data   # 設定・アラート・観測履歴を永続化
-    # Chromium が共有メモリ不足 (既定64MB) でクラッシュするのを防ぐ
-    shm_size: "1gb"
     restart: unless-stopped
