@@ -26,8 +26,8 @@
 //   RATESHOP_DATES     監視するチェックイン日のオフセット日数 (既定 "1,3,7,14,30")
 //   RATESHOP_ADULTS    空室検索する宿泊人数。カンマ区切りで最大3プロファイル (既定 2。例 "1,2")
 //   RATESHOP_CONCURRENCY 楽天収集の並列取得数 1〜10 (既定 3)
-//   RATESHOP_STOCK_PROBE 残室数プローブの最大段数 1〜10 (既定 5。1で無効=バッジ実値のみ)
-//   RATESHOP_HEADFUL   1 でブラウザを画面表示 (デバッグ用。既定はヘッドレス)
+//   RATESHOP_STOCK_PROBE 残室数プローブの最大段数 1〜10 (既定 3。1で無効=バッジ実値のみ)
+//   RATESHOP_NAV_DELAY   取得リクエスト間の待ち時間ms (既定 1500。短いと楽天に間引かれる)
 //   RATESHOP_WEBHOOK   アラート送信先のSlack互換Webhook URL (任意)
 //   RATESHOP_WEBHOOK_TYPES Webhookで送る種別 (既定 price_up,price_down,soldout,restock)
 //   RATESHOP_WEBHOOK_PCT   Webhookで送る価格変動の最小% (既定 0)
@@ -109,8 +109,10 @@ const argSource = process.argv.find(a => a.startsWith('--source='))?.split('=')[
 
 const FIXED = {
   source: (argSource || process.env.RATESHOP_SOURCE || '').toLowerCase(),
-  stockProbe: Number(process.env.RATESHOP_STOCK_PROBE || 5),
-  headless: process.env.RATESHOP_HEADFUL !== '1',
+  // 楽天のレート制限を避けるための既定値 (取得を速くしすぎると間引かれ在庫推定が不安定化する)。
+  // 速度を上げたい場合は env で stockProbe↑ / navDelay↓ / 並列数↑ を調整する。
+  stockProbe: Number(process.env.RATESHOP_STOCK_PROBE || 3),
+  navDelay: Number(process.env.RATESHOP_NAV_DELAY || 1500),
   tickMs: Number(process.env.RATESHOP_TICK_MS || 5000),
 }
 
@@ -162,7 +164,7 @@ function buildSource(cfg) {
       adults: cfg.adults,
       concurrency: cfg.concurrency,
       stockProbe: FIXED.stockProbe,
-      headless: FIXED.headless,
+      navDelayMs: FIXED.navDelay,
     })
   }
   if (kind === 'rakuten') {
